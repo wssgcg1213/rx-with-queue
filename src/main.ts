@@ -21,27 +21,37 @@ const random = ():string => {
 
 $input.value = random()
 
+interface Action {
+  type: string;
+  value?: string;
+  item?: HTMLElement;
+}
+function createAction(type, value = null, item = null):Action {
+  return {
+    type,
+    value,
+    item
+  }
+}
+
 const btn$ = Observable.fromEvent<MouseEvent>($btnGroup, 'click')
-  .map(evt => ({
-    type: (evt.target['className'].match(/button-(\S+)/) || [, null])[1],
-    value: <string>$input.value,
-    item: null
-  }))
+  .map((evt) => createAction(
+    (evt.target['className'].match(/button-(\S+)/) || [, null])[1],
+    $input.value
+  ))
   .filter(action => action.type !== null);
 
 const item$ = Observable.fromEvent<MouseEvent>($list, 'click')
   .filter((evt) => evt.target['classList'].contains('queue-item'))
-  .map((evt) => ({
-    type: 'delete',
-    value: null,
-    item: <HTMLLIElement>evt.target
-  }));
+  .map((evt) => createAction('delete', null, evt.target));
 
-btn$.merge(item$)
-  .do(action => {
+const app$ = btn$.merge(item$)
+  .do((action: Action) => {
+    // 带副作用操作
     switch (action.type) {
       case 'left-in':
         $list.insertBefore(createItem(action.value), $list.firstElementChild);
+        $input.value = random();
         break;
       case 'left-out':
         if ($list.firstElementChild) {
@@ -51,6 +61,7 @@ btn$.merge(item$)
         break;
       case 'right-in':
         $list.appendChild(createItem(action.value));
+        $input.value = random();
         break;
       case 'right-out':
         if ($list.lastElementChild) {
@@ -61,9 +72,8 @@ btn$.merge(item$)
       case 'delete':
         $list.removeChild(action.item)
     }
-    $input.value = random();
   })
   .subscribe(
-    (e) => console.log(e),
-    (e) => console.error(e)
+    (action) => console.log(action),
+    (err) => console.error(err)
   );
